@@ -1,10 +1,11 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.2 2005/06/28 21:07:37 jcs Exp $
+ * $Id: pixelclock.c,v 1.3 2005/06/28 22:05:56 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
  *
  * Copyright (c) 2005 joshua stein <jcs@jcs.org>
+ * Copyright (c) 2005 Federico G. Schwindt
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
