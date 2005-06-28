@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.2 2005/06/28 21:27:55 jcs Exp $
+# $Id: Makefile,v 1.3 2005/06/28 21:52:45 jcs Exp $
 # vim:ts=8
 
 CC	= cc
@@ -35,7 +35,7 @@ clean:
 
 release: all
 	@mkdir $(PROG)-${VERS}
-	@cp *.c $(PROG)-$(VERS)/
+	@cp Makefile *.c $(PROG)-$(VERS)/
 	@tar -czf $(PROG)-$(VERS).tar.gz $(PROG)-$(VERS)
 	@rm -rf $(PROG)-$(VERS)/
 	@echo "made release ${VERS}"
