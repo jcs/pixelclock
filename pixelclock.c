@@ -1,5 +1,5 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.1 2005/06/28 21:05:19 jcs Exp $
+ * $Id: pixelclock.c,v 1.2 2005/06/28 21:07:37 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
@@ -43,6 +43,15 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
+/* default clock width */
+#define DEFWIDTH 3
+
+/* so our window manager knows us */
+char* win_name = "pixelclock";
+
+/* hours to highlight (start work, lunch, etc.) */
+int hihours[] = { 9, 12, 17 };
+
 struct xinfo {
 	Display* dpy;
 	int dpy_width, dpy_height;
@@ -58,20 +67,14 @@ struct xinfo {
 	Colormap win_colormap;
 } x;
 
-extern char *__progname;
-
-/* so our window manager knows us */
-char* win_name = "pixelclock";
-
-/* hours to highlight (start work, lunch, etc.) */
-int hihours[] = { 9, 12, 17 };
-
 const struct option longopts[] = {
 	{ "display",	required_argument,	NULL,	'd' },
 	{ "width",	required_argument,	NULL,	'w' },
 
 	{ NULL,		0,			NULL,	0 }
 };
+
+extern char *__progname;
 
 long	getcolor(const char *);
 void	handler(int sig);
@@ -84,15 +87,13 @@ main(int argc, char* argv[])
 	char *display = NULL, *p;
 	int c, hi, y, z;
 	int hourtick, lastpos = -1, newpos = 0;
-
 	struct timeval tv[2];
 	time_t now;
 	struct tm *t;
 
 	bzero(&x, sizeof(struct xinfo));
 
-	/* default clock width */
-	x.width = 3;
+	x.width = DEFWIDTH;
 
 	while ((c = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
 		switch (c) {
