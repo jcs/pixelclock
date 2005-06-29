@@ -1,5 +1,5 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.3 2005/06/28 22:05:56 jcs Exp $
+ * $Id: pixelclock.c,v 1.4 2005/06/29 03:19:42 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
@@ -92,6 +92,8 @@ main(int argc, char* argv[])
 	time_t now;
 	struct tm *t;
 
+	XEvent event;
+
 	bzero(&x, sizeof(struct xinfo));
 
 	x.width = DEFWIDTH;
@@ -124,7 +126,7 @@ main(int argc, char* argv[])
 	hourtick = x.dpy_height / 24;
 
 	for (;;) {
-        	if (gettimeofday(&tv[0], NULL))
+		if (gettimeofday(&tv[0], NULL))
 			errx(1, "gettimeofday");
 			/* NOTREACHED */
 
@@ -136,7 +138,13 @@ main(int argc, char* argv[])
 		newpos = (hourtick * t->tm_hour) +
 			(float)(((float)t->tm_min / 60.0) * hourtick) - 3;
 
-		if (newpos != lastpos) {
+		/* check if we just got exposed */
+		bzero(&event, sizeof(XEvent));
+		XCheckWindowEvent(x.dpy, x.win, ExposureMask, &event);
+
+		/* only redraw if our time changed enough to move the box or if
+		 * we were just exposed */
+		if ((newpos != lastpos) || (event.type == Expose)) {
 			XClearWindow(x.dpy, x.win);
 
 			XSetForeground(x.dpy, x.gc, getcolor("yellow"));
@@ -181,6 +189,7 @@ init_x(const char *display)
 {
 	int rc;
 	XGCValues values;
+	XSetWindowAttributes attributes;
 	XTextProperty win_name_prop;
 
 	if (!(x.dpy = XOpenDisplay(display)))
@@ -201,17 +210,25 @@ init_x(const char *display)
 			BlackPixel(x.dpy, x.screen),
 			BlackPixel(x.dpy, x.screen));
 
-	if (!(x.gc = XCreateGC(x.dpy, x.win, 0, &values)))
-		errx(1, "XCreateGC");
-		/* NOTREACHED */
-
 	if (!(rc = XStringListToTextProperty(&win_name, 1, &win_name_prop)))
 		errx(1, "XStringListToTextProperty");
 		/* NOTREACHED */
 
 	XSetWMName(x.dpy, x.win, &win_name_prop);
 
+	/* remove all window manager decorations and force our position/size */
+	/* XXX: apparently this is not very nice */
+	attributes.override_redirect = True;
+	XChangeWindowAttributes(x.dpy, x.win, CWOverrideRedirect, &attributes);
+
+	if (!(x.gc = XCreateGC(x.dpy, x.win, 0, &values)))
+		errx(1, "XCreateGC");
+		/* NOTREACHED */
+
 	XMapWindow(x.dpy, x.win);
+
+	/* we want to know when we're exposed */
+	XSelectInput(x.dpy, x.win, ExposureMask);
 
 	XFlush(x.dpy);
 	XSync(x.dpy, False);
