@@ -1,5 +1,5 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.4 2005/06/29 03:19:42 jcs Exp $
+ * $Id: pixelclock.c,v 1.5 2005/07/07 18:07:03 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
@@ -50,8 +50,8 @@
 /* so our window manager knows us */
 char* win_name = "pixelclock";
 
-/* hours to highlight (start work, lunch, etc.) */
-int hihours[] = { 9, 12, 17 };
+/* default hours to highlight (9am, noon, 5pm) */
+const float defhours[3] = { 9.0, 12.0, 17.0 };
 
 struct xinfo {
 	Display* dpy;
@@ -86,16 +86,18 @@ int
 main(int argc, char* argv[])
 {
 	char *display = NULL, *p;
-	int c, hi, y, z;
+	int c, i, y;
 	int hourtick, lastpos = -1, newpos = 0;
 	struct timeval tv[2];
 	time_t now;
 	struct tm *t;
 
+	float *hihours;
+	int nhihours;
+
 	XEvent event;
 
 	bzero(&x, sizeof(struct xinfo));
-
 	x.width = DEFWIDTH;
 
 	while ((c = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
@@ -114,6 +116,40 @@ main(int argc, char* argv[])
 		default:
 			usage();
 			/* NOTREACHED */
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc == 0) {
+		/* use default times */
+		nhihours = sizeof(defhours) / sizeof(defhours[0]);
+		if ((hihours = alloca(sizeof(defhours))) == NULL)
+			err(1, NULL);
+
+		for (i = 0; i < nhihours; i++)
+			hihours[i] = defhours[i];
+	} else {
+		/* get times from args */
+		nhihours = argc;
+		if ((hihours = alloca(nhihours * sizeof(float))) == NULL)
+			err(1, NULL);
+
+		for (i = 0; i < argc; ++i) {
+			int h, m;
+			char *p = argv[i];
+
+			/* parse times like 14:12 */
+			h = atoi(p);
+			if ((p = strchr(p, ':')) == NULL)
+				errx(1, "Invalid time %s", argv[i]);
+			m = atoi(p + 1);
+
+			if (h > 23 || h < 0 || m > 59 || m < 0)
+				errx(1, "Invalid time %s", argv[i]);
+
+			hihours[i] = h + (m / 60.0);
 		}
 	}
 
@@ -147,29 +183,25 @@ main(int argc, char* argv[])
 		if ((newpos != lastpos) || (event.type == Expose)) {
 			XClearWindow(x.dpy, x.win);
 
+			/* draw the current time */
 			XSetForeground(x.dpy, x.gc, getcolor("yellow"));
 			XFillRectangle(x.dpy, x.win, x.gc,
 				0, newpos,
 				x.width, 6);
 
-			/* draw the hour marks */
+			/* draw the hour ticks */
+			XSetForeground(x.dpy, x.gc, getcolor("blue"));
 			for (y = 1; y <= 23; y++) {
-				hi = 0;
-				for (z = 0; z < sizeof(&hihours); z++)
-					if (y == hihours[z]) {
-						hi = 1;
-						break;
-					}
-
-				if (hi)
-					XSetForeground(x.dpy, x.gc,
-					    getcolor("green"));
-				else
-					XSetForeground(x.dpy, x.gc,
-					    getcolor("blue"));
-
 				XFillRectangle(x.dpy, x.win, x.gc,
 					0, (y * hourtick),
+					x.width, 2);
+			}
+
+			/* highlight requested times */
+			XSetForeground(x.dpy, x.gc, getcolor("green"));
+			for (i = 0; i < nhihours; i++) {
+				XFillRectangle(x.dpy, x.win, x.gc,
+					0, (hihours[i] * hourtick),
 					x.width, 2);
 			}
 
@@ -261,6 +293,6 @@ void
 usage(void)
 {
 	fprintf(stderr, "usage: %s %s\n", __progname,
-		"[-display host:dpy] [-width]");
+		"[-display host:dpy] [-width <pixels>] [time ...]");
 	exit(1);
 }
