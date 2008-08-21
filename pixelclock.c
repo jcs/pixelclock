@@ -1,5 +1,5 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.5 2005/07/07 18:07:03 jcs Exp $
+ * $Id: pixelclock.c,v 1.6 2008/08/21 21:34:54 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
@@ -56,15 +56,10 @@ const float defhours[3] = { 9.0, 12.0, 17.0 };
 struct xinfo {
 	Display* dpy;
 	int dpy_width, dpy_height;
-
 	int screen;
-
 	Window win;
-
 	int width;
-
 	GC gc;
-
 	Colormap win_colormap;
 } x;
 
@@ -293,6 +288,6 @@ void
 usage(void)
 {
 	fprintf(stderr, "usage: %s %s\n", __progname,
-		"[-display host:dpy] [-width <pixels>] [time ...]");
+		"[-display host:dpy] [-width <pixels>] [time time2 ...]");
 	exit(1);
 }
