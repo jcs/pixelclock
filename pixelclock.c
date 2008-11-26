@@ -1,10 +1,10 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.6 2008/08/21 21:34:54 jcs Exp $
+ * $Id: pixelclock.c,v 1.7 2008/11/26 16:51:48 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
  *
- * Copyright (c) 2005 joshua stein <jcs@jcs.org>
+ * Copyright (c) 2005,2008 joshua stein <jcs@jcs.org>
  * Copyright (c) 2005 Federico G. Schwindt
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,6 +59,7 @@ struct xinfo {
 	int screen;
 	Window win;
 	int width;
+	int onleft;
 	GC gc;
 	Colormap win_colormap;
 } x;
@@ -66,6 +67,7 @@ struct xinfo {
 const struct option longopts[] = {
 	{ "display",	required_argument,	NULL,	'd' },
 	{ "width",	required_argument,	NULL,	'w' },
+	{ "left",	no_argument,		NULL,	'l' },
 
 	{ NULL,		0,			NULL,	0 }
 };
@@ -94,11 +96,16 @@ main(int argc, char* argv[])
 
 	bzero(&x, sizeof(struct xinfo));
 	x.width = DEFWIDTH;
+	x.onleft = 0;
 
 	while ((c = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
 		switch (c) {
 		case 'd':
 			display = optarg;
+			break;
+
+		case 'l':
+			x.onleft = 1;
 			break;
 
 		case 'w':
@@ -231,7 +238,7 @@ init_x(const char *display)
 	x.win_colormap = DefaultColormap(x.dpy, DefaultScreen(x.dpy));
 
 	x.win = XCreateSimpleWindow(x.dpy, RootWindow(x.dpy, x.screen),
-			x.dpy_width - x.width, 0,
+			(x.onleft ? 0 : x.dpy_width - x.width), 0,
 			x.width, x.dpy_height,
 			0,
 			BlackPixel(x.dpy, x.screen),
@@ -288,6 +295,7 @@ void
 usage(void)
 {
 	fprintf(stderr, "usage: %s %s\n", __progname,
-		"[-display host:dpy] [-width <pixels>] [time time2 ...]");
+		"[-display host:dpy] [-left] [-width <pixels>] "
+		"[time time2 ...]");
 	exit(1);
 }
