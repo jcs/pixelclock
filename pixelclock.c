@@ -1,10 +1,10 @@
 /* vim:ts=8
- * $Id: pixelclock.c,v 1.7 2008/11/26 16:51:48 jcs Exp $
+ * $Id: pixelclock.c,v 1.8 2009/03/09 06:35:26 jcs Exp $
  *
  * pixelclock
  * a different way of looking at time
  *
- * Copyright (c) 2005,2008 joshua stein <jcs@jcs.org>
+ * Copyright (c) 2005,2008-2009 joshua stein <jcs@jcs.org>
  * Copyright (c) 2005 Federico G. Schwindt
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,8 +44,11 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-/* default clock width */
-#define DEFWIDTH 3
+/* default clock size */
+#define DEFSIZE 3
+
+/* default position is along the right side */
+#define DEFPOS 'r'
 
 /* so our window manager knows us */
 char* win_name = "pixelclock";
@@ -58,16 +61,19 @@ struct xinfo {
 	int dpy_width, dpy_height;
 	int screen;
 	Window win;
-	int width;
-	int onleft;
+	int size;
+	char position;
 	GC gc;
 	Colormap win_colormap;
 } x;
 
 const struct option longopts[] = {
 	{ "display",	required_argument,	NULL,	'd' },
-	{ "width",	required_argument,	NULL,	'w' },
+	{ "size",	required_argument,	NULL,	's' },
 	{ "left",	no_argument,		NULL,	'l' },
+	{ "right",	no_argument,		NULL,	'r' },
+	{ "top",	no_argument,		NULL,	't' },
+	{ "bottom",	no_argument,		NULL,	'b' },
 
 	{ NULL,		0,			NULL,	0 }
 };
@@ -95,8 +101,8 @@ main(int argc, char* argv[])
 	XEvent event;
 
 	bzero(&x, sizeof(struct xinfo));
-	x.width = DEFWIDTH;
-	x.onleft = 0;
+	x.size = DEFSIZE;
+	x.position = NULL;
 
 	while ((c = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
 		switch (c) {
@@ -104,13 +110,21 @@ main(int argc, char* argv[])
 			display = optarg;
 			break;
 
+		case 'b':
+		case 't':
 		case 'l':
-			x.onleft = 1;
+		case 'r':
+			if (x.position)
+				errx(1, "only one of -top, -bottom, -left, "
+				    "-right allowed");
+				/* NOTREACHED */
+
+			x.position = c;
 			break;
 
-		case 'w':
-			x.width = strtol(optarg, &p, 10);
-			if (*p || x.width < 1)
+		case 's':
+			x.size = strtol(optarg, &p, 10);
+			if (*p || x.size < 1)
 				errx(1, "illegal value -- %s", optarg);
 				/* NOTREACHED */
 			break;
@@ -120,6 +134,9 @@ main(int argc, char* argv[])
 			/* NOTREACHED */
 		}
 	}
+
+	if (!x.position)
+		x.position = DEFPOS;
 
 	argc -= optind;
 	argv += optind;
@@ -145,7 +162,7 @@ main(int argc, char* argv[])
 			/* parse times like 14:12 */
 			h = atoi(p);
 			if ((p = strchr(p, ':')) == NULL)
-				errx(1, "Invalid time %s", argv[i]);
+				errx(1, "invalid time %s", argv[i]);
 			m = atoi(p + 1);
 
 			if (h > 23 || h < 0 || m > 59 || m < 0)
@@ -161,7 +178,8 @@ main(int argc, char* argv[])
 	signal(SIGTERM, handler);
 
 	/* each hour will be this many pixels away */
-	hourtick = x.dpy_height / 24;
+	hourtick = ((x.position == 'b' || x.position == 't') ? x.dpy_width :
+		x.dpy_height) / 24;
 
 	for (;;) {
 		if (gettimeofday(&tv[0], NULL))
@@ -187,25 +205,34 @@ main(int argc, char* argv[])
 
 			/* draw the current time */
 			XSetForeground(x.dpy, x.gc, getcolor("yellow"));
-			XFillRectangle(x.dpy, x.win, x.gc,
-				0, newpos,
-				x.width, 6);
+			if (x.position == 'b' || x.position == 't')
+				XFillRectangle(x.dpy, x.win, x.gc,
+					newpos, 0, 6, x.size);
+			else
+				XFillRectangle(x.dpy, x.win, x.gc,
+					0, newpos, x.size, 6);
 
 			/* draw the hour ticks */
 			XSetForeground(x.dpy, x.gc, getcolor("blue"));
-			for (y = 1; y <= 23; y++) {
-				XFillRectangle(x.dpy, x.win, x.gc,
-					0, (y * hourtick),
-					x.width, 2);
-			}
+			for (y = 1; y <= 23; y++)
+				if (x.position == 'b' || x.position == 't')
+					XFillRectangle(x.dpy, x.win, x.gc,
+						(y * hourtick), 0, 2, x.size);
+				else
+					XFillRectangle(x.dpy, x.win, x.gc,
+						0, (y * hourtick), x.size, 2);
 
 			/* highlight requested times */
 			XSetForeground(x.dpy, x.gc, getcolor("green"));
-			for (i = 0; i < nhihours; i++) {
-				XFillRectangle(x.dpy, x.win, x.gc,
-					0, (hihours[i] * hourtick),
-					x.width, 2);
-			}
+			for (i = 0; i < nhihours; i++)
+				if (x.position == 'b' || x.position == 't')
+					XFillRectangle(x.dpy, x.win, x.gc,
+						(hihours[i] * hourtick), 0,
+						2, x.size);
+				else
+					XFillRectangle(x.dpy, x.win, x.gc,
+						0, (hihours[i] * hourtick),
+						x.size, 2);
 
 			lastpos = newpos;
 
@@ -222,12 +249,13 @@ void
 init_x(const char *display)
 {
 	int rc;
+	int left = 0, top = 0, width = 0, height = 0;
 	XGCValues values;
 	XSetWindowAttributes attributes;
 	XTextProperty win_name_prop;
 
 	if (!(x.dpy = XOpenDisplay(display)))
-		errx(1, "Unable to open display %s", XDisplayName(display));
+		errx(1, "unable to open display %s", XDisplayName(display));
 		/* NOTREACHED */
 
 	x.screen = DefaultScreen(x.dpy);
@@ -237,9 +265,35 @@ init_x(const char *display)
 
 	x.win_colormap = DefaultColormap(x.dpy, DefaultScreen(x.dpy));
 
+	switch (x.position) {
+	case 'b':
+		left = 0;
+		height = x.size;
+		top = x.dpy_height - height;
+		width = x.dpy_width;
+		break;
+	case 't':
+		left = 0;
+		top = 0;
+		height = x.size;
+		width = x.dpy_width;
+		break;
+	case 'l':
+		left = 0;
+		top = 0;
+		height = x.dpy_height;
+		width = x.size;
+		break;
+	case 'r':
+		width = x.size;
+		left = x.dpy_width - width;
+		top = 0;
+		height = x.dpy_height;
+		break;
+	}
+
 	x.win = XCreateSimpleWindow(x.dpy, RootWindow(x.dpy, x.screen),
-			(x.onleft ? 0 : x.dpy_width - x.width), 0,
-			x.width, x.dpy_height,
+			left, top, width, height,
 			0,
 			BlackPixel(x.dpy, x.screen),
 			BlackPixel(x.dpy, x.screen));
@@ -295,7 +349,7 @@ void
 usage(void)
 {
 	fprintf(stderr, "usage: %s %s\n", __progname,
-		"[-display host:dpy] [-left] [-width <pixels>] "
+		"[-display host:dpy] [-left|-right|-top|-bottom] [-size <pixels>] "
 		"[time time2 ...]");
 	exit(1);
 }
